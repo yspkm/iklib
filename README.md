@@ -1,0 +1,2 @@
+# iklib
+Unexpectedly, As a by-product of seeking algorithms for Verilog, I made a lightweight and efficient 6dof robotic arm inverse kinematics library. It is A lightweight 6dof-robot-arm inverse kinematics algorithm for calculating 6-free variables from 6-input variables, 28-DH parameters (25+3 dummy), 3-frame-change parameters to change into DH-frame, and first-three- angles-finding subroutine, with all of them adjustable. t and efficient 6dof robotic arm inverse kinematics library. 
