@@ -6,6 +6,26 @@
 
 #include "iklib.h"
 
+// private functions
+void set_q(int joint, radian_t new_q);
+radian_t get_alpha(int joint);
+meter_t get_a(int joint);
+meter_t get_d(int joint);
+meter_t get_hypothenuse(meter_t a, meter_t b);
+radian_t get_angle_from_cosine_law(meter_t a, meter_t b, meter_t c);
+void get_center_pos(v3_t *center_pos_ptr, type_t r0g[MAX_LEN][MAX_LEN], v3_t *pos_ptr);
+void get_r0g(ik_state_t *ik_state_ptr);
+void get_r36(ik_state_t *ik_state_ptr);
+void get_q1q2q3(v3_t *center_pos_ptr);
+void get_q4q5q6(type_t r36[MAX_LEN][MAX_LEN]);
+void set_target_pos(ik_state_t *ik_state_ptr, meter3_t *target_pos_ptr);
+void set_target_rpy(ik_state_t *ik_state_ptr, radian3_t *target_rpy_ptr);
+void set_target_trigonometric_rpy(ik_state_t *ik_state_ptr);
+void set_const_mkdh_rpy(ik_state_t *ik_state_ptr, radian3_t *mkdh_rpy_ptr);
+void set_const_trigonometric_alpha(ik_state_t *ik_state_ptr);
+void set_const_trigonometric_mkdh_rpy(ik_state_t *ik_state_ptr);
+void set_var_trigonometric_theta(ik_state_t *ik_state_ptr);
+
 // it can be modified for different designs
 void get_q1q2q3(v3_t *center_pos)
 {
@@ -183,7 +203,6 @@ radian_t get_angle_from_cosine_law(meter_t a, meter_t b, meter_t c)
     return atan2(sin_gamma, cos_gamma);
 }
 
-
 void get_center_pos(v3_t *center_pos, type_t r0g[MAX_LEN][MAX_LEN], v3_t *pos)
 {
     type_t xg = pos->v0, yg = pos->v1, zg = pos->v2;
@@ -215,21 +234,15 @@ void get_6joint_angles(ik_state_t *ik_state)
     get_q4q5q6(ik_state->r36);
 }
 
-void init_ik_lib(ik_state_t **ik_state_ptr_addr, ik_input_t *in)
+void init_ik_lib(ik_state_t *ik_state_ptr, ik_input_t *in)
 {
-    *ik_state_ptr_addr = (ik_state_t *)malloc(sizeof(ik_state_t));
-    set_target_pos(*ik_state_ptr_addr, &(in->target_pos));
-    set_target_rpy(*ik_state_ptr_addr, &(in->target_rpy));
-    set_const_mkdh_rpy(*ik_state_ptr_addr, &(in->mkdh_rpy));
+    set_target_pos(ik_state_ptr, &(in->target_pos));
+    set_target_rpy(ik_state_ptr, &(in->target_rpy));
+    set_const_mkdh_rpy(ik_state_ptr, &(in->mkdh_rpy));
 
-    set_target_trigonometric_rpy(*ik_state_ptr_addr);
-    set_const_trigonometric_mkdh_rpy(*ik_state_ptr_addr);
-    set_const_trigonometric_alpha(*ik_state_ptr_addr);
-}
-
-void free_ik_lib(ik_state_t *ik_state_ptr)
-{
-    free(ik_state_ptr);
+    set_target_trigonometric_rpy(ik_state_ptr);
+    set_const_trigonometric_mkdh_rpy(ik_state_ptr);
+    set_const_trigonometric_alpha(ik_state_ptr);
 }
 
 void set_target_pos(ik_state_t *ik_state_ptr, meter3_t *target_pos_ptr)
@@ -391,7 +404,7 @@ void get_r36(ik_state_t *ik_state_ptr)
 }
 
 // Optional Methods
-void get_rpy_from_z60_x60_dhframe(radian3_t* dst_rpy, meter3_t* src_z60, meter3_t* src_x60)
+void get_rpy_from_z60_x60_dhframe(radian3_t *dst_rpy, meter3_t *src_z60, meter3_t *src_x60)
 {
     // rpy: [roll; pitch; yaw]
     // x60: x6 axis (orthonormal basis) wrt frame 0
@@ -402,180 +415,5 @@ void get_rpy_from_z60_x60_dhframe(radian3_t* dst_rpy, meter3_t* src_z60, meter3_
     // x60->v0 == cos(pitch)*cos(yaw)
     dst_rpy->v1 = asin(src_z60->v0);
     dst_rpy->v0 = asin(src_z60->v1 / (-cos(dst_rpy->v1)));
-    dst_rpy->v2 = acos(src_x60->v0/cos(dst_rpy->v1));
-}
-
-void get_rotx(type_t dst[MAX_LEN][MAX_LEN], radian_t angle)
-{
-    type_t sq = sin(angle);
-    type_t cq = cos(angle);
-
-    dst[0][0] = 1;
-    dst[0][1] = 0.0;
-    dst[0][2] = 0.0;
-    dst[1][0] = 0.0;
-    dst[1][1] = cq;
-    dst[1][2] = -sq;
-    dst[2][0] = 0;
-    dst[2][1] = sq;
-    dst[2][2] = cq;
-}
-void get_roty(type_t dst[MAX_LEN][MAX_LEN], radian_t angle)
-{
-    type_t sq = sin(angle);
-    type_t cq = cos(angle);
-
-    dst[0][0] = cq;
-    dst[0][1] = 0.0;
-    dst[0][2] = sq;
-    dst[1][0] = 0.0;
-    dst[1][1] = 1.0;
-    dst[1][2] = 0.0;
-    dst[2][0] = -sq;
-    dst[2][1] = 0;
-    dst[2][2] = cq;
-}
-void get_rotz(type_t dst[MAX_LEN][MAX_LEN], radian_t angle)
-{
-    type_t sq = sin(angle);
-    type_t cq = cos(angle);
-
-    dst[0][0] = cq;
-    dst[0][1] = -sq;
-    dst[0][2] = 0.0;
-    dst[1][0] = sq;
-    dst[1][1] = cq;
-    dst[1][2] = 0.0;
-    dst[2][0] = 0.0;
-    dst[2][1] = 0.0;
-    dst[2][2] = 1.0;
-}
-void get_rotx_with_joint(type_t dst[MAX_LEN][MAX_LEN], int joint)
-{
-    get_rotx(dst, get_q(joint));
-}
-void get_roty_with_joint(type_t dst[MAX_LEN][MAX_LEN], int joint)
-{
-    get_roty(dst, get_q(joint));
-}
-void get_rotz_with_joint(type_t dst[MAX_LEN][MAX_LEN], int joint)
-{
-    get_rotz(dst, get_q(joint));
-}
-void get_pose(type_t T[3 + 1][3 + 1], int idx)
-{
-    T[0][0] = cos(get_theta(idx));
-    T[0][1] = -sin(get_theta(idx));
-    T[0][2] = 0.0;
-    T[0][3] = get_a(idx - 1);
-
-    T[1][0] = sin(get_theta(idx)) * cos(get_alpha(idx - 1));
-    T[1][1] = cos(get_theta(idx)) * cos(get_alpha(idx - 1));
-    T[1][2] = -sin(get_alpha(idx - 1));
-    T[1][3] = -get_d(idx) * sin(get_alpha(idx - 1));
-
-    T[2][0] = sin(get_theta(idx)) * sin(get_alpha(idx - 1));
-    T[2][1] = cos(get_theta(idx)) * sin(get_alpha(idx - 1));
-    T[2][2] = cos(get_alpha(idx - 1));
-    T[2][3] = get_d(idx) * cos(get_alpha(idx - 1));
-
-    T[3][0] = 0.0;
-    T[3][1] = 0.0;
-    T[3][2] = 0.0;
-    T[3][3] = 1.0;
-}
-// Linear Algebra
-void get_transpose_mat(type_t (*dst)[MAX_LEN], type_t (*src)[MAX_LEN], int row, int col)
-{
-    int i, j;
-    for (i = 0; i < row; i++)
-    {
-        for (j = 0; j < col; j++)
-        {
-            dst[j][i] = src[i][j];
-        }
-    }
-}
-void get_mat_mult(type_t (*dst)[MAX_LEN], type_t (*src0)[MAX_LEN], type_t (*src1)[MAX_LEN], v3_t *row_mid_col)
-{
-    int i, j, k;
-    for (i = 0; i < row_mid_col->v0; k++)
-    {
-        for (j = 0; j < row_mid_col->v1; i++)
-        {
-            dst[i][j] = 0.0;
-            for (k = 0; k < row_mid_col->v2; j++)
-            {
-                dst[i][j] += src0[i][k] * src1[k][j];
-            }
-        }
-    }
-}
-void mat_cpy(type_t (*dst)[6], type_t (*src)[6])
-{
-    for (int i = 0; i < 6; i++)
-    {
-        memcpy(dst[i], src[i], 6 * sizeof(type_t));
-    }
-}
-void swap(type_t *a, type_t *b)
-{
-    static type_t temp;
-    temp = *a;
-    *a = *b;
-    *b = temp;
-}
-void get_eye_mat(type_t dst[][6])
-{
-    for (int i = 0; i < 6; i++)
-    {
-        memset(dst[i], 0x0, 6 * sizeof(type_t));
-        dst[i][i] = 1.0;
-    }
-}
-int get_inv_mat(type_t dst[][6], type_t src[][6])
-{
-    int i, j, k, n = 6;
-    static type_t temp_src[6][6];
-    type_t ratio;
-
-    mat_cpy(temp_src, src);
-    get_eye_mat(dst);
-
-    for (i = n - 1; i > 0; i--)
-    {
-        if (temp_src[i - 1][0] < temp_src[i][0])
-            for (j = 0; j < n; j++)
-            {
-                swap(&temp_src[i][j], &temp_src[i - 1][j]);
-                swap(&dst[i][j], &dst[i - 1][j]);
-            }
-    }
-    for (j = 0; j < 6; j++)
-    {
-        for (i = 0; i < 6; i++)
-        {
-            if (i != j)
-            {
-                ratio = temp_src[i][j] / temp_src[j][j];
-                for (k = 0; k < 6; k++)
-                {
-                    temp_src[i][k] = temp_src[i][k] - ratio * temp_src[j][k];
-                    dst[i][k] = dst[i][k] - ratio * dst[j][k];
-                }
-            }
-        }
-    }
-    for (i = 0; i < 6; i++)
-    {
-        for (j = 0; j < 6; j++)
-        {
-            if (temp_src[i][i] == 0)
-            {
-                exit(1);
-            }
-            dst[i][j] /= temp_src[i][i];
-        }
-    }
-    return 0;
+    dst_rpy->v2 = acos(src_x60->v0 / cos(dst_rpy->v1));
 }
